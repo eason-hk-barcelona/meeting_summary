@@ -1,0 +1,31 @@
+# Qwen2.5-Omni 会议总结系统依赖
+
+# 核心依赖
+torch>=2.0.0
+# 特殊版本的 transformers，支持 Qwen2.5-Omni
+# 使用以下命令安装:
+# pip install git+https://github.com/huggingface/transformers@v4.51.3-Qwen2.5-Omni-preview
+transformers @ git+https://github.com/huggingface/transformers@v4.51.3-Qwen2.5-Omni-preview
+
+# Qwen 多模态工具
+qwen-omni-utils>=0.0.1
+
+# 音频处理
+librosa>=0.10.0
+soundfile>=0.12.0
+numpy>=1.24.0
+
+# Flash Attention (可选，但推荐用于提升性能)
+# 需要 CUDA 11.6+ 和相应的 PyTorch 版本
+# pip install flash-attn --no-build-isolation
+flash-attn>=2.3.0
+
+# 其他工具
+scipy>=1.10.0
+tqdm>=4.65.0
+
+# 可选：用于音频格式转换
+ffmpeg-python>=0.2.0
+
+# 可选：用于更好的日志
+coloredlogs>=15.0.1

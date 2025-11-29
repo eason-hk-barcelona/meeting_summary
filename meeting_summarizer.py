@@ -1,7 +1,7 @@
 import os
 from typing import List, Dict
 import torch
-from transformers import Qwen3OmniMoeForConditionalGeneration, Qwen3OmniMoeProcessor
+from transformers import Qwen2_5OmniForConditionalGeneration, Qwen2_5OmniProcessor
 from qwen_omni_utils import process_mm_info
 import soundfile as sf
 import numpy as np
@@ -14,14 +14,15 @@ from config import *
 class MeetingSummarizer:
     def __init__(self):
         """初始化模型和处理器"""
-        print("Loading Qwen3-Omni model...")
-        self.model = Qwen3OmniMoeForConditionalGeneration.from_pretrained(
+        print("Loading Qwen2.5-Omni model...")
+        # 使用 Qwen2.5-Omni 替代 Qwen3-Omni
+        self.model = Qwen2_5OmniForConditionalGeneration.from_pretrained(
             MODEL_PATH,
-            dtype="auto",
+            torch_dtype= "auto", 
             device_map="auto",
-            attn_implementation="flash_attention_2" if USE_FLASH_ATTN else "eager"
+            attn_implementation="flash_attention_2"  # 启用 flash attention
         )
-        self.processor = Qwen3OmniMoeProcessor.from_pretrained(MODEL_PATH)
+        self.processor = Qwen2_5OmniProcessor.from_pretrained(MODEL_PATH)
 
         self.audio_processor = AudioProcessor()
         self.textgrid_parser = TextGridParser()
@@ -140,7 +141,6 @@ class MeetingSummarizer:
         """
         为音频段生成总结
         """
-        # 构建消息
         messages = [
             {
                 "role": "user",
@@ -163,14 +163,11 @@ class MeetingSummarizer:
             }
         ]
 
-        # Set whether to use audio in video
-        USE_AUDIO_IN_VIDEO = True
-
-        # 处理输入
+        # 处理输入 - 使用 Qwen2.5-Omni 的方式
         text = self.processor.apply_chat_template(
             messages, add_generation_prompt=True, tokenize=False)
         audios, images, videos = process_mm_info(
-            messages, use_audio_in_video=USE_AUDIO_IN_VIDEO)
+            messages, use_audio_in_video=True)
         inputs = self.processor(
             text=text,
             audio=audios,
@@ -178,18 +175,18 @@ class MeetingSummarizer:
             videos=videos,
             return_tensors="pt",
             padding=True,
-            use_audio_in_video=USE_AUDIO_IN_VIDEO
+            use_audio_in_video=True
         )
         inputs = inputs.to(self.model.device).to(self.model.dtype)
 
-        # 生成总结 - 禁用音频输出，只要文本
-        self.model.disable_talker()
+        # 生成总结 - Qwen2.5-Omni
         with torch.no_grad():
             outputs = self.model.generate(
                 **inputs,
+                use_audio_in_video=True,
+                return_audio=False,
                 max_new_tokens=512,
-                do_sample=False,
-                return_audio=False
+                do_sample=False
             )
 
         response = self.processor.batch_decode(
@@ -232,13 +229,11 @@ class MeetingSummarizer:
         inputs = self.processor(text=text, return_tensors="pt", padding=True)
         inputs = inputs.to(self.model.device).to(self.model.dtype)
 
-        # 确保禁用音频输出，增加token数量以支持更长的输出
-        self.model.disable_talker()
+        # 生成总结
         with torch.no_grad():
             outputs = self.model.generate(
                 **inputs,
-                # 支持简洁总结(450) + 时间戳映射(600) + 格式化(100) + 安全边界(350)
-                max_new_tokens=1500,
+                max_new_tokens=1200,
                 do_sample=False,
                 return_audio=False
             )
